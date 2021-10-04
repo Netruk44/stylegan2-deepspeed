@@ -2,7 +2,7 @@
 
 An implementation of stylegan2 using Microsoft's DeepSpeed.
 
-Heavily based on (lucidrain's)[https://github.com/lucidrains/stylegan2-pytorch] implementation.
+Heavily based on [lucidrain's](https://github.com/lucidrains/stylegan2-pytorch) implementation.
 
 # References
 
