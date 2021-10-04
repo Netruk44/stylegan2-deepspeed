@@ -144,9 +144,9 @@ class Trainer():
     loader = cycle(dataloader)
 
     run = TrainingRun(
-      gen=gen, 
+      gen=gen_engine, 
       gen_opt=gen_opt, 
-      disc=disc, 
+      disc=disc_engine, 
       disc_opt=disc_opt, 
       args=args, 
       loader=loader, 
