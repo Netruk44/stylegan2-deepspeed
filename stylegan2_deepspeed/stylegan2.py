@@ -1,9 +1,11 @@
 # Code mainly from: https://github.com/lucidrains/stylegan2-pytorch/blob/master/stylegan2_pytorch/stylegan2_pytorch.py
 
+from diff_augment import DiffAugment
 from einops import rearrange
 from functools import partial
 from kornia.filters import filter2d
-from math import floor, log2, sqrt
+from math import log2, sqrt
+from random import random
 from torch import nn, einsum
 import torch
 import torch.nn.functional as F
@@ -16,6 +18,17 @@ def exists(val):
 
 def leaky_relu(p=0.2):
     return nn.LeakyReLU(p, inplace=True)
+
+def latent_to_w(style_vectorizer, latent_descr):
+    return [(style_vectorizer(z), num_layers) for z, num_layers in latent_descr]
+
+def styles_def_to_tensor(styles_def):
+    return torch.cat([t[:, None, :].expand(-1, n, -1) for t, n in styles_def], dim=1)
+
+def random_hflip(tensor, prob):
+    if prob > random():
+        return tensor
+    return torch.flip(tensor, dims=(3,))
 
 
 class Flatten(nn.Module):
@@ -336,6 +349,34 @@ class Generator(nn.Module):
 
         return rgb
 
+class StylizedGenerator(nn.Module):
+  def __init__(self, image_size, latent_dim = 512, fmap_max = 512, style_depth = 8, network_capacity = 16, transparent = False, fp16 = False, cl_reg = False, steps = 1, lr = 1e-4, ttur_mult = 2, fq_layers = [], fq_dict_size = 256, attn_layers = [], no_const = False, lr_mlp = 0.1):
+    super().__init__()
+    self.lr = lr
+    self.steps = steps
+
+    self.S = StyleVectorizer(latent_dim, style_depth, lr_mul = lr_mlp)
+    self.G = Generator(image_size, latent_dim, network_capacity, transparent = transparent, attn_layers = attn_layers, no_const = no_const, fmap_max = fmap_max)
+
+    self._init_weights()
+  
+  def _init_weights(self):
+    for m in self.modules():
+      if type(m) in {nn.Conv2d, nn.Linear}:
+        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+
+    for block in self.G.blocks:
+      nn.init.zeros_(block.to_noise1.weight)
+      nn.init.zeros_(block.to_noise2.weight)
+      nn.init.zeros_(block.to_noise1.bias)
+      nn.init.zeros_(block.to_noise2.bias)
+  
+  def forward(self, style, noise):
+    w_space = latent_to_w(self.S, style)
+    w_styles = styles_def_to_tensor(w_space)
+
+    return self.G(w_styles, noise)
+
 class Discriminator(nn.Module):
     def __init__(self, image_size, network_capacity = 16, fq_layers = [], fq_dict_size = 256, attn_layers = [], transparent = False, fmap_max = 512):
         super().__init__()
@@ -397,3 +438,36 @@ class Discriminator(nn.Module):
         x = self.flatten(x)
         x = self.to_logit(x)
         return x.squeeze(), quantize_loss
+
+class AugWrapper(nn.Module):
+    def __init__(self, D):
+        super().__init__()
+        self.D = D
+
+    def forward(self, images, prob = 0., types = [], detach = False):
+        if random() < prob:
+            images = random_hflip(images, prob=0.5)
+            images = DiffAugment(images, types=types)
+
+        if detach:
+            images = images.detach()
+
+        return self.D(images)
+
+class AugmentedDiscriminator(nn.Module):
+  def __init__(self, image_size, fmap_max = 512, network_capacity = 16, transparent = False, fp16 = False, fq_layers = [], fq_dict_size = 256, attn_layers = []):
+    super().__init__()
+
+    self.D = Discriminator(image_size, network_capacity, fq_layers = fq_layers, fq_dict_size = fq_dict_size, attn_layers = attn_layers, transparent = transparent, fmap_max = fmap_max)
+    self.D_aug = AugWrapper(self.D)
+
+    self._init_weights()
+  
+  def _init_weights(self):
+    for m in self.modules():
+      if type(m) in {nn.Conv2d, nn.Linear}:
+        nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+  
+  def forward(self, img_batch):
+    # TODO: Augmentation
+    return self.D(img_batch)
