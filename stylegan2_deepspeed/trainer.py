@@ -129,6 +129,7 @@ class Trainer():
     self,
     args,
   ):
+    # TODO: Get rid of this block
     name = args.name
     data_directory = args.data_dir
     save_every = args.save_every
@@ -144,8 +145,6 @@ class Trainer():
 
     ttur_mult = 2.
     mixed_prob = 0.9
-
-    # TODO: Load from checkpoint if it exists
 
     gen = create_generator(args, rank)
     disc = stylegan2.AugmentedDiscriminator(image_size, network_capacity=network_capacity).cuda(rank)
@@ -163,7 +162,6 @@ class Trainer():
 
     device = gen_engine.local_rank
     batch_size = gen_engine.train_micro_batch_size_per_gpu()
-    # TODO[?]: use rank/worldsize/?? from engine
 
     # Setup dataset and dataloaders
     dataset = Dataset(data_directory, image_size)
@@ -181,5 +179,7 @@ class Trainer():
       loader=loader, 
       batch_size=batch_size, 
       device=device)
+    
+    # TODO: Load from checkpoint if it exists
     
     run.train()
