@@ -114,10 +114,14 @@ class TrainingRun():
     self.total_steps = self.total_steps + 1
   
   def train(self):
-    for _ in tqdm(forever()):
-      # TODO: Check-ins (image dump & print to console)
-      # TODO: Save checkpoints
-      self.step()
+    if self.is_primary:
+      for _ in tqdm(forever()):
+        # TODO: Check-ins (image dump & print to console)
+        # TODO: Save checkpoints
+        self.step()
+    else:
+      while True:
+        self.step()
     
 
 class Trainer():
