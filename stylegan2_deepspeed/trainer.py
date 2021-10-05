@@ -69,6 +69,9 @@ class TrainingRun():
 
     self.total_steps = 0
     self.mixed_prob = 0.9
+
+    self.D_loss_fn = hinge_loss
+    self.G_loss_fn = gen_hinge_loss
   
   def get_image_batch(self):
     get_latents_fn = mixed_list if random() < self.mixed_prob else noise_list
@@ -121,9 +124,6 @@ class Trainer():
   def __init__(self, results_directory = './results', models_directory = './models'):
     self.results_directory = results_directory
     self.models_directory = models_directory
-
-    self.D_loss_fn = hinge_loss
-    self.G_loss_fn = gen_hinge_loss
   
   def train(
     self,
