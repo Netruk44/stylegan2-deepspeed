@@ -18,7 +18,7 @@ setup(
     'einops',
     'kornia>=0.5.4',
     'numpy',
-    'pillow'
+    'pillow',
     'torch',
     'torchvision',
     'vector-quantize-pytorch>=0.1.0'
