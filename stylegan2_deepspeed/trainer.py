@@ -37,8 +37,8 @@ def forever():
   while True:
     yield
 
-def create_generator(args, rank):
-  return stylegan2.StylizedGenerator(args.image_size, network_capacity=args.network_capacity).cuda(rank)
+def create_generator(args, device):
+  return stylegan2.StylizedGenerator(args.image_size, network_capacity=args.network_capacity).cuda(device)
 
 class TrainingRun():
   def __init__(self, gen, gen_opt, disc, disc_opt, args, loader, batch_size, device):
@@ -56,7 +56,8 @@ class TrainingRun():
     self.lookahead = args.lookahead
     self.lookahead_k = args.lookahead_k
 
-    self.is_primary = torch.distributed.get_rank() == 0
+    self.rank = args.local_rank
+    self.is_primary = self.rank == 0
 
     if self.is_primary:
       self.gen_ema = create_generator(args, device)
@@ -139,7 +140,7 @@ class Trainer():
 
     world_size = torch.distributed.get_world_size()
     is_ddp = world_size > 1
-    rank = torch.distributed.get_rank()
+    rank = args.local_rank
 
     ttur_mult = 2.
     mixed_prob = 0.9

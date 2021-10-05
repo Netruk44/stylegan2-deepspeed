@@ -23,6 +23,8 @@ def parse_arguments(argument_override = None):
   parser.add_argument('--lookahead_alpha', default=0.5, type=float, help='alpha parameter for lookahead implementation')
   parser.add_argument('--lookahead_k', default=5, type=int, help='k parameter for lookahead implementation')
 
+  parser.add_argument('--local_rank', default=0, type=int, help='the rank of this process')
+
   parser = deepspeed.add_config_arguments(parser)
 
   if argument_override is not None:
