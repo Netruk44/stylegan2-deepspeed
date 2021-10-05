@@ -162,7 +162,7 @@ class Trainer():
     disc_engine, disc_opt, *_ = deepspeed.initialize(args=args, model=disc, optimizer=disc_opt)
 
     device = gen_engine.local_rank
-    batch_size = gen_engine.train_micro_batch_size_per_gpu
+    batch_size = gen_engine.train_micro_batch_size_per_gpu()
     # TODO[?]: use rank/worldsize/?? from engine
 
     # Setup dataset and dataloaders
