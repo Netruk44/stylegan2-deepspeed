@@ -137,7 +137,7 @@ class Trainer():
     ema_beta = args.ema_beta
     latent_dim = args.latent_dim
 
-    world_size = torch.distribted.get_world_size()
+    world_size = torch.distributed.get_world_size()
     is_ddp = world_size > 1
     rank = torch.distributed.get_rank()
 
