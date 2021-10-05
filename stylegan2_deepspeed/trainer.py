@@ -1,5 +1,7 @@
 from dataset import Dataset, cycle
 import deepspeed
+from ema import EMA
+from lookahead import Lookahead
 import multiprocessing
 from random import random
 import stylegan2
@@ -35,6 +37,9 @@ def forever():
   while True:
     yield
 
+def create_generator(args, rank):
+  return stylegan2.StylizedGenerator(args.image_size, network_capacity=args.network_capacity).cuda(rank)
+
 class TrainingRun():
   def __init__(self, gen, gen_opt, disc, disc_opt, args, loader, batch_size, device):
     self.gen = gen
@@ -48,6 +53,19 @@ class TrainingRun():
     self.image_size = args.image_size
     self.num_layers = args.num_layers
     self.latent_dim = args.latent_dim
+    self.lookahead = args.lookahead
+    self.lookahead_k = args.lookahead_k
+
+    self.is_primary = torch.distributed.get_rank() == 0
+
+    if self.is_primary:
+      self.gen_ema = create_generator(args, device)
+      self.gen_ema.requires_grad_(False)
+
+      self.ema_k = args.ema_k
+      self.ema = EMA(args.ema_beta)
+
+    self.total_steps = 0
   
   def get_image_batch(self):
     get_latents_fn = mixed_list if random() < self.mixed_prob else noise_list
@@ -78,8 +96,16 @@ class TrainingRun():
     self.gen.backward(gen_loss)
     self.gen.step()
 
-    # TODO: EMA
-    # TODO: Lookahead
+    # Joint lookahead update
+    if self.lookahead and (self.total_steps + 1) % self.lookahead_k == 0:
+      self.gen_opt.lookahead_step()
+      self.disc_opt.lookahead_step()
+
+    # EMA update
+    if self.is_primary and (self.total_steps + 1) % self.ema_k == 0:
+      self.ema.update_ema(self.gen, self.gen_ema)
+
+    self.total_steps = self.total_steps + 1
   
   def train(self):
     for _ in tqdm(forever()):
@@ -120,13 +146,15 @@ class Trainer():
 
     # TODO: Load from checkpoint if it exists
 
-    gen = stylegan2.StylizedGenerator(image_size, network_capacity=network_capacity).cuda(rank)
+    gen = create_generator(args, rank)
     disc = stylegan2.AugmentedDiscriminator(image_size, network_capacity=network_capacity).cuda(rank)
 
     gen_opt = Adam(gen.parameters(), lr = learning_rate, betas=(0.5, 0.9))
     disc_opt = Adam(disc.parameters(), lr = learning_rate * ttur_mult, betas=(0.5, 0.9))
 
-    # TODO: Lookahead
+    if args.lookahead == True:
+      gen_opt = Lookahead(gen_opt, alpha=args.lookahead_alpha)
+      disc_opt = Lookahead(disc_opt, alpha=args.lookahead_alpha)
 
     # Initialize deepspeed
     gen_engine, gen_opt, *_ = deepspeed.Initialize(args=args, model=gen, optimizer=gen_opt)

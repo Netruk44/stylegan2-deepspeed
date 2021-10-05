@@ -15,9 +15,13 @@ def parse_arguments(argument_override = None):
   #parser.add_argument('-t', '--total-batch-size', default=30, type=int, min=1, help='the total number of batches to run per step. required to be a multiple of per-gpu-batch-size.')
   #parser.add_argument('-b', '--per-gpu-batch-size', default=5, type=int, min=1, help='the size of the mini-batch run on the gpu.')
   parser.add_argument('-l', '--learning_rate', default=2e-4, type=float, help='the learning rate')
-  parser.add_argument('--save-every', default=1000, type=int, help='how often to checkpoint')
-  parser.add_argument('-e', '--ema-beta', default=0.99, type=float, help='beta value for the exponential moving average (usually between 0.99 and 0.9999)')
+  parser.add_argument('--save_every', default=1000, type=int, help='how often to checkpoint')
+  parser.add_argument('-e', '--ema_beta', default=0.99, type=float, help='beta value for the exponential moving average (usually between 0.99 and 0.9999)')
+  parser.add_argument('--ema_k', default=5, type=int, help='how often to update the ema')
   parser.add_argument('--latent_dim', default=512, type=int, help='the size of the latent dimension')
+  parser.add_argument('--lookahead', default=True, type=bool, help='use lookahead with optimizer')
+  parser.add_argument('--lookahead_alpha', default=0.5, type=float, help='alpha parameter for lookahead implementation')
+  parser.add_argument('--lookahead_k', default=5, type=int, help='k parameter for lookahead implementation')
 
   parser = deepspeed.add_config_arguments(parser)
 
