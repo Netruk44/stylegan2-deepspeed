@@ -1,6 +1,6 @@
 import argparse
 import deepspeed
-from trainer import Trainer
+from stylegan2_deepspeed.trainer import Trainer
 
 def parse_arguments(argument_override = None):
   parser = argparse.ArgumentParser(description='StyleGAN2-deepspeed')
