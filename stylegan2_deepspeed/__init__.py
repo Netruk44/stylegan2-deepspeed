@@ -1,1 +1,1 @@
-from stylegan2_deepspeed.trainer import Trainer
+from stylegan2_deepspeed.cli import main
