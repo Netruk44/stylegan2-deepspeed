@@ -158,8 +158,8 @@ class Trainer():
       disc_opt = Lookahead(disc_opt, alpha=args.lookahead_alpha)
 
     # Initialize deepspeed
-    gen_engine, gen_opt, *_ = deepspeed.Initialize(args=args, model=gen, optimizer=gen_opt)
-    disc_engine, disc_opt, *_ = deepspeed.Initialize(args=args, model=disc, optimizer=disc_opt)
+    gen_engine, gen_opt, *_ = deepspeed.initialize(args=args, model=gen, optimizer=gen_opt)
+    disc_engine, disc_opt, *_ = deepspeed.initialize(args=args, model=disc, optimizer=disc_opt)
 
     device = gen_engine.local_rank
     batch_size = gen_engine.train_micro_batch_size_per_gpu
