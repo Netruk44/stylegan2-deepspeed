@@ -1,0 +1,1 @@
+from stylegan2_deepspeed.trainer import Trainer
