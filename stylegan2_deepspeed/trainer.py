@@ -1,10 +1,10 @@
 from dataset import Dataset, cycle
 import deepspeed
-from ema import EMA
-from lookahead import Lookahead
 import multiprocessing
 from random import random
-import stylegan2
+from stylegan2_deepspeed.ema import EMA
+from stylegan2_deepspeed.lookahead import Lookahead
+import stylegan2_deepspeed.stylegan2 as stylegan2
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam

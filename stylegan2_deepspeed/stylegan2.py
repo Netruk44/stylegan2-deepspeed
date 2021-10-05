@@ -1,11 +1,11 @@
 # Code mainly from: https://github.com/lucidrains/stylegan2-pytorch/blob/master/stylegan2_pytorch/stylegan2_pytorch.py
 
-from diff_augment import DiffAugment
 from einops import rearrange
 from functools import partial
 from kornia.filters import filter2d
 from math import log2, sqrt
 from random import random
+from stylegan2_deepspeed.diff_augment import DiffAugment
 from torch import nn, einsum
 import torch
 import torch.nn.functional as F
