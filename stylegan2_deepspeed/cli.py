@@ -34,6 +34,6 @@ def parse_arguments(argument_override = None):
 def main():
   deepspeed.init_distributed()
   args = parse_arguments()
-  trainer = Trainer(args.results_directory, args.models_directory)
+  trainer = Trainer(args.results_dir, args.models_dir)
 
   trainer.train(args)
