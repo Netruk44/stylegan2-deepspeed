@@ -1,4 +1,5 @@
 import deepspeed
+from math import log2
 import multiprocessing
 from random import random
 from stylegan2_deepspeed.dataset import Dataset, cycle
@@ -51,7 +52,7 @@ class TrainingRun():
     self.device = device
 
     self.image_size = args.image_size
-    self.num_layers = args.num_layers
+    self.num_layers = int(log2(self.image_size) - 1)
     self.latent_dim = args.latent_dim
     self.lookahead = args.lookahead
     self.lookahead_k = args.lookahead_k
