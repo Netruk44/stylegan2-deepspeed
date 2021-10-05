@@ -1,7 +1,7 @@
-from dataset import Dataset, cycle
 import deepspeed
 import multiprocessing
 from random import random
+from stylegan2_deepspeed.dataset import Dataset, cycle
 from stylegan2_deepspeed.ema import EMA
 from stylegan2_deepspeed.lookahead import Lookahead
 import stylegan2_deepspeed.stylegan2 as stylegan2
