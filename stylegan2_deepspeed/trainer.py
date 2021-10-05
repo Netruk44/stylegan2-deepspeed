@@ -68,6 +68,7 @@ class TrainingRun():
       self.ema = EMA(args.ema_beta)
 
     self.total_steps = 0
+    self.mixed_prob = 0.9
   
   def get_image_batch(self):
     get_latents_fn = mixed_list if random() < self.mixed_prob else noise_list
@@ -123,8 +124,6 @@ class Trainer():
 
     self.D_loss_fn = hinge_loss
     self.G_loss_fn = gen_hinge_loss
-
-    self.mixed_prob = 0.9
   
   def train(
     self,
