@@ -215,6 +215,7 @@ class TrainingRun():
       print("No model found to load. Starting fresh!")
       return
     
+    # TODO: Check/override settings from constructor
     print("Loading from checkpoint...")
     gen_tag = self.gen_load_from if len(self.gen_load_from) > 0 else None
     disc_tag = self.disc_load_from if len(self.disc_load_from) > 0 else None
