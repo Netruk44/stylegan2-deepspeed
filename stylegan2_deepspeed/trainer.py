@@ -106,6 +106,7 @@ class TrainingRun():
     self.gen.backward(gen_loss)
     self.gen.step()
 
+    # TODO: Probable bug with gradient_accumulation_steps and lookahead/ema updates.
     # Joint lookahead update
     if self.lookahead and (self.total_steps + 1) % self.lookahead_k == 0:
       self.gen_opt.lookahead_step()
