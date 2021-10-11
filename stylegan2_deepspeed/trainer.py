@@ -1,6 +1,7 @@
 import deepspeed
 from math import log2
 import multiprocessing
+import os
 from random import random
 from stylegan2_deepspeed.dataset import Dataset, cycle
 from stylegan2_deepspeed.ema import EMA
@@ -56,6 +57,9 @@ class TrainingRun():
     self.latent_dim = args.latent_dim
     self.lookahead = args.lookahead
     self.lookahead_k = args.lookahead_k
+    self.checkpoint_every = args.checkpoint_every
+    self.models_dir = args.models_dir
+    self.results_dir = args.results_dir
 
     self.rank = args.local_rank
     self.is_primary = self.rank == 0
@@ -111,6 +115,19 @@ class TrainingRun():
     if self.is_primary and (self.total_steps + 1) % self.ema_k == 0:
       self.ema.update_ema(self.gen, self.gen_ema)
 
+    # Write checkpoint
+    if self.total_steps % self.checkpoint_every == 0:
+      gen_dir = os.path.join(self.models_dir, 'gen')
+      disc_dir = os.path.join(self.models_dir, 'disc')
+
+      if not os.path.exists(gen_dir):
+        os.mkdir(gen_dir)
+      if not os.path.exists(disc_dir):
+        os.mkdir(disc_dir)
+      
+      self.gen.save_checkpoint(save_dir=gen_dir)
+      self.disc.save_checkpoint(save_dir=disc_dir)
+
     self.total_steps = self.total_steps + 1
   
   def train(self):
@@ -125,9 +142,8 @@ class TrainingRun():
     
 
 class Trainer():
-  def __init__(self, results_directory = './results', models_directory = './models'):
-    self.results_directory = results_directory
-    self.models_directory = models_directory
+  def __init__(self):
+    pass
   
   def train(
     self,
@@ -171,7 +187,7 @@ class Trainer():
       disc_opt=disc_opt, 
       args=args, 
       loader=loader, 
-      batch_size=batch_size, 
+      batch_size=batch_size,
       device=device)
     
     # TODO: Load from checkpoint if it exists
