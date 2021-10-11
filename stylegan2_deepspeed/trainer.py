@@ -43,14 +43,15 @@ def create_generator(args, device):
   return stylegan2.StylizedGenerator(args.image_size, network_capacity=args.network_capacity).cuda(device)
 
 class TrainingRun():
-  def __init__(self, gen, gen_opt, disc, disc_opt, args, loader, batch_size, device):
+  def __init__(self, gen, gen_opt, disc, disc_opt, args, loader):
     self.gen = gen
     self.gen_opt = gen_opt
     self.disc = disc
     self.disc_opt = disc_opt
     self.loader = loader
-    self.batch_size = batch_size
-    self.device = device
+
+    self.device = gen.local_rank
+    self.batch_size = gen.train_micro_batch_size_per_gpu()
 
     self.image_size = args.image_size
     self.num_layers = int(log2(self.image_size) - 1)
@@ -68,7 +69,7 @@ class TrainingRun():
     self.is_primary = self.rank == 0
 
     if self.is_primary:
-      self.gen_ema = create_generator(args, device)
+      self.gen_ema = create_generator(args, self.device)
       self.gen_ema.requires_grad_(False)
 
       self.ema_k = args.ema_k
@@ -193,12 +194,12 @@ class Trainer():
     gen_engine, gen_opt, *_ = deepspeed.initialize(args=args, model=gen, optimizer=gen_opt)
     disc_engine, disc_opt, *_ = deepspeed.initialize(args=args, model=disc, optimizer=disc_opt)
 
-    device = gen_engine.local_rank
     batch_size = gen_engine.train_micro_batch_size_per_gpu()
+    num_workers = NUM_CORES if not is_ddp else 0
 
     # Setup dataset and dataloaders
+    # TODO: Try passing dataset/loader into deepspeed initialize
     dataset = Dataset(args.data_dir, args.image_size)
-    num_workers = NUM_CORES if not is_ddp else 0
     sampler = DistributedSampler(dataset, rank=rank, num_replicas=world_size, shuffle=True) if is_ddp else None
     dataloader = data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, sampler=sampler, shuffle=not is_ddp, drop_last=True, pin_memory=True)
     loader = cycle(dataloader)
@@ -209,9 +210,7 @@ class Trainer():
       disc=disc_engine, 
       disc_opt=disc_opt, 
       args=args, 
-      loader=loader, 
-      batch_size=batch_size,
-      device=device)
+      loader=loader)
     
     run.load()
     run.train()
