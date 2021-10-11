@@ -170,7 +170,10 @@ class TrainingRun():
         # Generate results
         if self.current_step() % self.evaluate_every == 0 and self.current_microstep() == 0:
           eval_id = self.current_step() // self.evaluate_every
+          print(f'Generating {eval_id}')
           self.generate(eval_id)
+        else:
+          print(f'Not generating {self.current_step} % {self.evaluate_every} and {self.current_microstep()} == 0')
 
       self.step()
 
