@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils import data
 from torch.utils.data.distributed import DistributedSampler
+import torchvision
 from tqdm import tqdm
 
 NUM_CORES = multiprocessing.cpu_count()
@@ -44,6 +45,8 @@ def create_generator(args, device):
 
 class TrainingRun():
   def __init__(self, gen, gen_opt, disc, disc_opt, args, loader):
+    assert log2(args.image_size).is_integer(), 'image size must be a power of 2 (64, 128, 256, 512, 1024)'
+    
     self.gen = gen
     self.gen_opt = gen_opt
     self.disc = disc
@@ -59,6 +62,7 @@ class TrainingRun():
     self.lookahead = args.lookahead
     self.lookahead_k = args.lookahead_k
     self.checkpoint_every = args.checkpoint_every
+    self.evaluate_every = args.evaluate_every
     self.models_dir = args.models_dir
     self.results_dir = args.results_dir
     self.model_name = args.name
@@ -74,18 +78,26 @@ class TrainingRun():
 
       self.ema_k = args.ema_k
       self.ema = EMA(args.ema_beta)
+    else:
+      self.gen_ema = None
+      self.ema = None
 
     self.mixed_prob = 0.9
 
     self.D_loss_fn = hinge_loss
     self.G_loss_fn = gen_hinge_loss
   
-  def get_image_batch(self):
+  def get_image_batch(self, ema = False):
     get_latents_fn = mixed_list if random() < self.mixed_prob else noise_list
     style = get_latents_fn(self.batch_size, self.num_layers, self.latent_dim, self.device)
     noise = image_noise(self.batch_size, self.image_size, self.device)
 
-    return self.gen.forward(style, noise)
+    generator = self.gen
+
+    if ema:
+      generator = self.gen_ema
+
+    return generator.forward(style, noise)
   
   def get_checkpoint_dirs(self):
       return (os.path.join(self.models_dir, self.model_name, 'gen'), 
@@ -135,25 +147,61 @@ class TrainingRun():
     return self.gen.micro_steps % self.gen.gradient_accumulation_steps()
   
   def train(self):
-    if self.is_primary:
-      for _ in tqdm(forever(), initial=self.current_iteration()):
-        # TODO: Check-ins (image dump & print to console)
-        self.step()
-        
-        # Write checkpoint
-        if self.current_step() % self.checkpoint_every == 0 and self.current_microstep() == 0:
-          gen_dir, disc_dir = self.get_checkpoint_dirs()
+    iter = forever()
 
-          if not os.path.exists(gen_dir):
-            os.makedirs(gen_dir)
-          if not os.path.exists(disc_dir):
-            os.makedirs(disc_dir)
-          
-          self.gen.save_checkpoint(save_dir=gen_dir)
-          self.disc.save_checkpoint(save_dir=disc_dir)
-    else:
-      while True:
-        self.step()
+    if self.is_primary:
+      iter = tqdm(iter)
+    
+    for _ in iter:
+      # Checkpoint (all machines need to checkpoint)
+      if self.current_step() % self.checkpoint_every == 0 and self.current_microstep() == 0:
+        gen_dir, disc_dir = self.get_checkpoint_dirs()
+
+        if not os.path.exists(gen_dir):
+          os.makedirs(gen_dir)
+        if not os.path.exists(disc_dir):
+          os.makedirs(disc_dir)
+        
+        self.gen.save_checkpoint(save_dir=gen_dir)
+        self.disc.save_checkpoint(save_dir=disc_dir)
+      
+      # Primary machine only
+      if self.is_primary:
+        # Generate results
+        if self.current_step() % self.evaluate_every == 0 and self.current_microstep() == 0:
+          eval_id = self.current_step() // self.evaluate_every
+          self.generate(eval_id)
+
+      self.step()
+
+  @torch.no_grad()
+  def generate(self, eval_id):
+    def save_image_without_overwrite(images, output_file, nrow):
+      if os.path.exists(output_file):
+          os.remove(output_file)
+      
+      torchvision.utils.save_image(images, output_file, nrow=nrow)
+    
+    num_rows = 8
+    all_imgs = []
+
+    # Generate until we have enough to fill the grid
+    while len(all_imgs) < num_rows ** 2:
+      all_imgs = all_imgs + list(self.get_image_batch())
+    
+    # Only keep enough to fill the grid
+    all_imgs = all_imgs[:num_rows**2]
+    save_image_without_overwrite(all_imgs, os.path.join(self.results_dir, self.model_name, f'{eval_id}.png'))
+
+    # Repeat for EMA
+    all_imgs = []
+    while len(all_imgs) < num_rows ** 2:
+      all_imgs = all_imgs + list(self.get_image_batch(ema=True))
+    all_imgs = all_imgs[:num_rows**2]
+    save_image_without_overwrite(all_imgs, os.path.join(self.results_dir, self.model_name, f'{eval_id}_ema.png'))
+
+    # TODO: Mixed latents
+
   
   def load(self):
     # Load checkpoint, if it exists
