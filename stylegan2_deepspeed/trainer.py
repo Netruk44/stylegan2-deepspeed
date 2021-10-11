@@ -60,6 +60,7 @@ class TrainingRun():
     self.checkpoint_every = args.checkpoint_every
     self.models_dir = args.models_dir
     self.results_dir = args.results_dir
+    self.model_name = args.name
 
     self.rank = args.local_rank
     self.is_primary = self.rank == 0
@@ -118,8 +119,8 @@ class TrainingRun():
 
     # Write checkpoint
     if self.total_steps % self.checkpoint_every == 0:
-      gen_dir = os.path.join(self.models_dir, 'gen')
-      disc_dir = os.path.join(self.models_dir, 'disc')
+      gen_dir = os.path.join(self.models_dir, self.model_name, 'gen')
+      disc_dir = os.path.join(self.models_dir, self.model_name, 'disc')
 
       if not os.path.exists(gen_dir):
         os.mkdir(gen_dir)
