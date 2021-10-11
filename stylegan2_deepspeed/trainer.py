@@ -160,6 +160,7 @@ class TrainingRun():
 
     self.gen.load_checkpoint(load_dir=gen_dir, tag=gen_tag)
     self.disc.load_checkpoint(load_dir=disc_dir, tag=disc_tag)
+    self.total_steps = self.gen.global_steps
 
     
 
