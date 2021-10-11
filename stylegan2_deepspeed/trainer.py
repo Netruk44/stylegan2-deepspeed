@@ -133,16 +133,6 @@ class Trainer():
     self,
     args,
   ):
-    # TODO: Get rid of this block
-    name = args.name
-    data_directory = args.data_dir
-    save_every = args.save_every
-    image_size = args.image_size
-    network_capacity = args.network_capacity
-    learning_rate = args.learning_rate
-    ema_beta = args.ema_beta
-    latent_dim = args.latent_dim
-
     world_size = torch.distributed.get_world_size()
     is_ddp = world_size > 1
     rank = args.local_rank
@@ -151,10 +141,10 @@ class Trainer():
     mixed_prob = 0.9
 
     gen = create_generator(args, rank)
-    disc = stylegan2.AugmentedDiscriminator(image_size, network_capacity=network_capacity).cuda(rank)
+    disc = stylegan2.AugmentedDiscriminator(args.image_size, network_capacity=args.network_capacity).cuda(rank)
 
-    gen_opt = Adam(gen.parameters(), lr = learning_rate, betas=(0.5, 0.9))
-    disc_opt = Adam(disc.parameters(), lr = learning_rate * ttur_mult, betas=(0.5, 0.9))
+    gen_opt = Adam(gen.parameters(), lr=args.learning_rate, betas=(0.5, 0.9))
+    disc_opt = Adam(disc.parameters(), lr=args.learning_rate * ttur_mult, betas=(0.5, 0.9))
 
     if args.lookahead == True:
       gen_opt = Lookahead(gen_opt, alpha=args.lookahead_alpha)
@@ -168,7 +158,7 @@ class Trainer():
     batch_size = gen_engine.train_micro_batch_size_per_gpu()
 
     # Setup dataset and dataloaders
-    dataset = Dataset(data_directory, image_size)
+    dataset = Dataset(args.data_dir, args.image_size)
     num_workers = NUM_CORES if not is_ddp else 0
     sampler = DistributedSampler(dataset, rank=rank, num_replicas=world_size, shuffle=True) if is_ddp else None
     dataloader = data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, sampler=sampler, shuffle=not is_ddp, drop_last=True, pin_memory=True)
