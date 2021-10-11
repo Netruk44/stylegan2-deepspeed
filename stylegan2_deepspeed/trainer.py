@@ -216,13 +216,17 @@ class TrainingRun():
       return
     
     # TODO: Check/override settings from constructor
-    print("Loading from checkpoint...")
+    if self.is_primary:
+      print("Loading from checkpoint...")
+      
     gen_tag = self.gen_load_from if len(self.gen_load_from) > 0 else None
     disc_tag = self.disc_load_from if len(self.disc_load_from) > 0 else None
 
     self.gen.load_checkpoint(load_dir=gen_dir, tag=gen_tag)
     self.disc.load_checkpoint(load_dir=disc_dir, tag=disc_tag)
-    print(f"Resuming from step {self.current_step()}, iteration: {self.current_iteration()}")
+
+    if self.is_primary:
+      print(f"Resuming from step {self.current_step()}, iteration: {self.current_iteration()}")
 
 class Trainer():
   def __init__(self):
