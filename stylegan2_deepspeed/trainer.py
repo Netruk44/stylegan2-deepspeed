@@ -74,6 +74,7 @@ class TrainingRun():
       self.ema_k = args.ema_k
       self.ema = EMA(args.ema_beta)
 
+    # TODO?: Stop keeping track of steps ourself, use the engine's.
     self.total_steps = 0
     self.mixed_prob = 0.9
 
@@ -162,8 +163,6 @@ class TrainingRun():
     self.disc.load_checkpoint(load_dir=disc_dir, tag=disc_tag)
     self.total_steps = self.gen.global_steps
     print(f"Resuming from step {self.total_steps}")
-
-    
 
 class Trainer():
   def __init__(self):
