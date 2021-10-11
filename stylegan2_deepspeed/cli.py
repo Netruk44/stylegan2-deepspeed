@@ -13,7 +13,6 @@ def parse_arguments(argument_override = None):
   parser.add_argument('-s', '--image_size', default=128, type=int, help='size of image to generate, must be a power of 2 (32, 64, 128, 256, 512, ...)')
   parser.add_argument('--network_capacity', default=16, type=int, help='network capacity (default 16), lower values use less memory but produce lower quality results')
   parser.add_argument('--learning_rate', default=2e-4, type=float, help='the learning rate')
-  parser.add_argument('--save_every', default=1000, type=int, help='how often to checkpoint')
   parser.add_argument('-e', '--ema_beta', default=0.99, type=float, help='beta value for the exponential moving average (usually between 0.99 and 0.9999)')
   parser.add_argument('--ema_k', default=5, type=int, help='how often to update the ema')
   parser.add_argument('--latent_dim', default=512, type=int, help='the size of the latent dimension')
