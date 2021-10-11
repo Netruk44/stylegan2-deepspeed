@@ -189,6 +189,7 @@ class TrainingRun():
     num_rows = 8
     all_imgs = []
 
+    # TODO: Re-use latents from one batch to the next
     # Generate until we have enough to fill the grid
     while len(all_imgs) < num_rows ** 2:
       all_imgs = all_imgs + list(self.get_image_batch())
@@ -218,7 +219,7 @@ class TrainingRun():
     # TODO: Check/override settings from constructor
     if self.is_primary:
       print("Loading from checkpoint...")
-      
+
     gen_tag = self.gen_load_from if len(self.gen_load_from) > 0 else None
     disc_tag = self.disc_load_from if len(self.disc_load_from) > 0 else None
 
