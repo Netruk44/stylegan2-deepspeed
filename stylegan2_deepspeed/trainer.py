@@ -123,9 +123,9 @@ class TrainingRun():
       disc_dir = os.path.join(self.models_dir, self.model_name, 'disc')
 
       if not os.path.exists(gen_dir):
-        os.mkdir(gen_dir)
+        os.makedirs(gen_dir)
       if not os.path.exists(disc_dir):
-        os.mkdir(disc_dir)
+        os.makedirs(disc_dir)
       
       self.gen.save_checkpoint(save_dir=gen_dir)
       self.disc.save_checkpoint(save_dir=disc_dir)
