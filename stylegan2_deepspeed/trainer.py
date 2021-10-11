@@ -75,8 +75,6 @@ class TrainingRun():
       self.ema_k = args.ema_k
       self.ema = EMA(args.ema_beta)
 
-    # TODO?: Stop keeping track of steps ourself, use the engine's.
-    self.total_steps = 0
     self.mixed_prob = 0.9
 
     self.D_loss_fn = hinge_loss
@@ -115,26 +113,35 @@ class TrainingRun():
     self.gen.backward(gen_loss)
     self.gen.step()
 
-    # TODO: Probable bug with gradient_accumulation_steps and lookahead/ema updates.
-    # Joint lookahead update
-    if self.lookahead and (self.total_steps + 1) % self.lookahead_k == 0:
-      self.gen_opt.lookahead_step()
-      self.disc_opt.lookahead_step()
+    # Only run some things once per global_step.
+    # Right at the very start of the step, before we do any work.
+    if self.current_microstep() == 0:
+      # Joint lookahead update
+      if self.lookahead and (self.current_step() + 1) % self.lookahead_k == 0:
+        self.gen_opt.lookahead_step()
+        self.disc_opt.lookahead_step()
 
-    # EMA update
-    if self.is_primary and (self.total_steps + 1) % self.ema_k == 0:
-      self.ema.update_ema(self.gen, self.gen_ema)
+      # EMA update
+      if self.is_primary and (self.current_step() + 1) % self.ema_k == 0:
+        self.ema.update_ema(self.gen, self.gen_ema)
 
-    self.total_steps = self.total_steps + 1
+  def current_iteration(self):
+    return self.gen.global_steps * self.gen.gradient_accumulation_steps() + self.current_microstep()
+
+  def current_step(self):
+    return self.gen.global_steps
+  
+  def current_microstep(self):
+    return self.gen.micro_steps % self.gen.gradient_accumulation_steps()
   
   def train(self):
     if self.is_primary:
-      for _ in tqdm(forever()):
+      for _ in tqdm(forever(), initial=self.current_iteration()):
         # TODO: Check-ins (image dump & print to console)
         self.step()
         
         # Write checkpoint
-        if self.total_steps % self.checkpoint_every == 0:
+        if self.current_step() % self.checkpoint_every == 0 and self.current_microstep() == 0:
           gen_dir, disc_dir = self.get_checkpoint_dirs()
 
           if not os.path.exists(gen_dir):
@@ -162,8 +169,7 @@ class TrainingRun():
 
     self.gen.load_checkpoint(load_dir=gen_dir, tag=gen_tag)
     self.disc.load_checkpoint(load_dir=disc_dir, tag=disc_tag)
-    self.total_steps = self.gen.global_steps
-    print(f"Resuming from step {self.total_steps}")
+    print(f"Resuming from step {self.current_step()}, iteration: {self.current_iteration()}")
 
 class Trainer():
   def __init__(self):
