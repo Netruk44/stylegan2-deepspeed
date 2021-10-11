@@ -194,14 +194,14 @@ class TrainingRun():
     
     # Only keep enough to fill the grid
     all_imgs = all_imgs[:num_rows**2]
-    save_image_without_overwrite(all_imgs, os.path.join(self.results_dir, self.model_name, f'{eval_id}.png'))
+    save_image_without_overwrite(all_imgs, os.path.join(self.results_dir, self.model_name, f'{eval_id}.png'), num_rows)
 
     # Repeat for EMA
     all_imgs = []
     while len(all_imgs) < num_rows ** 2:
       all_imgs = all_imgs + list(self.get_image_batch(ema=True))
     all_imgs = all_imgs[:num_rows**2]
-    save_image_without_overwrite(all_imgs, os.path.join(self.results_dir, self.model_name, f'{eval_id}_ema.png'))
+    save_image_without_overwrite(all_imgs, os.path.join(self.results_dir, self.model_name, f'{eval_id}_ema.png'), num_rows)
 
     # TODO: Mixed latents
 
