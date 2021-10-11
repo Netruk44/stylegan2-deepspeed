@@ -202,7 +202,7 @@ class TrainingRun():
     while len(all_imgs) < num_rows ** 2:
       all_imgs = all_imgs + list(self.get_image_batch(ema=True))
     all_imgs = all_imgs[:num_rows**2]
-    save_image_without_overwrite(all_imgs, os.path.join(dest_dir p, f'{eval_id}_ema.png'), num_rows)
+    save_image_without_overwrite(all_imgs, os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
 
     # TODO: Mixed latents
 
