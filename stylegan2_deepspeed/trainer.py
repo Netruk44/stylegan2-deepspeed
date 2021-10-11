@@ -61,6 +61,8 @@ class TrainingRun():
     self.models_dir = args.models_dir
     self.results_dir = args.results_dir
     self.model_name = args.name
+    self.gen_load_from = args.gen_load_from
+    self.disc_load_from = args.disc_load_from
 
     self.rank = args.local_rank
     self.is_primary = self.rank == 0
@@ -84,6 +86,10 @@ class TrainingRun():
     noise = image_noise(self.batch_size, self.image_size, self.device)
 
     return self.gen.forward(style, noise)
+  
+  def get_checkpoint_dirs(self):
+      return (os.path.join(self.models_dir, self.model_name, 'gen'), 
+        os.path.join(self.models_dir, self.model_name, 'disc'))
   
   def step(self):
     # Train Discriminator
@@ -117,30 +123,43 @@ class TrainingRun():
     if self.is_primary and (self.total_steps + 1) % self.ema_k == 0:
       self.ema.update_ema(self.gen, self.gen_ema)
 
-    # Write checkpoint
-    if self.total_steps % self.checkpoint_every == 0:
-      gen_dir = os.path.join(self.models_dir, self.model_name, 'gen')
-      disc_dir = os.path.join(self.models_dir, self.model_name, 'disc')
-
-      if not os.path.exists(gen_dir):
-        os.makedirs(gen_dir)
-      if not os.path.exists(disc_dir):
-        os.makedirs(disc_dir)
-      
-      self.gen.save_checkpoint(save_dir=gen_dir)
-      self.disc.save_checkpoint(save_dir=disc_dir)
-
     self.total_steps = self.total_steps + 1
   
   def train(self):
     if self.is_primary:
       for _ in tqdm(forever()):
         # TODO: Check-ins (image dump & print to console)
-        # TODO: Save checkpoints
         self.step()
+        
+        # Write checkpoint
+        if self.total_steps % self.checkpoint_every == 0:
+          gen_dir, disc_dir = self.get_checkpoint_dirs()
+
+          if not os.path.exists(gen_dir):
+            os.makedirs(gen_dir)
+          if not os.path.exists(disc_dir):
+            os.makedirs(disc_dir)
+          
+          self.gen.save_checkpoint(save_dir=gen_dir)
+          self.disc.save_checkpoint(save_dir=disc_dir)
     else:
       while True:
         self.step()
+  
+  def load(self):
+    # Load checkpoint, if it exists
+    gen_dir, disc_dir = self.get_checkpoint_dirs()
+
+    if (not os.path.exists(gen_dir)) or (not os.path.exists(disc_dir)):
+      print("No model found to load. Starting fresh!")
+      return
+    
+    gen_tag = self.gen_load_from if len(self.gen_load_from) > 0 else None
+    disc_tag = self.disc_load_from if len(self.disc_load_from) > 0 else None
+
+    self.gen.load_checkpoint(load_dir=gen_dir, tag=gen_tag)
+    self.disc.load_checkpoint(load_dir=disc_dir, tag=disc_tag)
+
     
 
 class Trainer():
@@ -192,6 +211,5 @@ class Trainer():
       batch_size=batch_size,
       device=device)
     
-    # TODO: Load from checkpoint if it exists
-    
+    run.load()
     run.train()

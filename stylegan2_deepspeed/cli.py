@@ -21,6 +21,8 @@ def parse_arguments(argument_override = None):
   parser.add_argument('--lookahead_alpha', default=0.5, type=float, help='alpha parameter for lookahead implementation')
   parser.add_argument('--lookahead_k', default=5, type=int, help='k parameter for lookahead implementation')
   parser.add_argument('-c', '--checkpoint_every', default=1000, type=int, help='number of iterations between automatic checkpoints')
+  parser.add_argument('--gen_load_from', default='', type=str, help='tag to load generator checkpoint from')
+  parser.add_argument('--disc_load_from', default='', type=str, help='tag to load discriminator checkpoint from')
 
   parser.add_argument('--local_rank', default=0, type=int, help='the rank of this process')
 
