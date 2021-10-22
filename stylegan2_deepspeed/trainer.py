@@ -209,7 +209,7 @@ class TrainingRun():
       return torch.index_select(a, dim, order_index)
 
     # Mix the latents of the first num_rows elements.
-    style = [x[0] for x in style[:num_rows]]
+    style = style[0][0][:num_rows]
     tmp1 = tile(style, 0, num_rows)
     tmp2 = torch.nn.repeat(num_rows, 1)
     mixed_layer_count = self.num_layers // 2
