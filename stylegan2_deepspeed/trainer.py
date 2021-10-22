@@ -1,6 +1,7 @@
 import deepspeed
 from math import log2
 import multiprocessing
+import numpy as np
 import os
 from random import random
 from stylegan2_deepspeed.dataset import Dataset, cycle
@@ -169,6 +170,13 @@ class TrainingRun():
 
       self.step()
 
+  def evaluate_in_chunks(self, gen, all_style, all_noise):
+    imgs = []
+    for i in range(0, len(all_style), self.batch_size):
+      width = min(self.batch_size, len(all_style) - i)
+      imgs.append(gen.forward(all_style[i:i+width], all_noise[i:i+width]))
+    return torch.cat(imgs, dim=0)
+
   @torch.no_grad()
   def generate(self, eval_id):
     def save_image_without_overwrite(images, output_file, nrow):
@@ -182,30 +190,33 @@ class TrainingRun():
       os.makedirs(dest_dir)
 
     num_rows = 8
-    all_imgs = []
 
     # Re-use latents across generators.
     total_latents = num_rows ** 2
     style = noise_list(total_latents, self.num_layers, self.latent_dim, self.device)
     noise = image_noise(total_latents, self.image_size, self.device)
+
+    save_image_without_overwrite(self.evalute_in_chunks(self.gen, style, noise), os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
+    save_image_without_overwrite(self.evalute_in_chunks(self.gen_ema, style, noise), os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
+
+    # Mixed latents / mixing regularities
+    def tile(a, dim, n_tile):
+      init_dim = a.size(dim)
+      repeat_idx = [1] * a.dim()
+      repeat_idx[dim] = n_tile
+      a = a.repeat(*(repeat_idx))
+      order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)])).cuda(self.device)
+      return torch.index_select(a, dim, order_index)
+
+    # Mix the latents of the first num_rows elements.
+    style = [x[0] for x in style[:num_rows]]
+    tmp1 = tile(style, 0, num_rows)
+    tmp2 = torch.nn.repeat(num_rows, 1)
+    mixed_layer_count = self.num_layers // 2
+    mixed_latents = [(tmp1, mixed_layer_count), (tmp2, self.num_layers - mixed_layer_count)]
     
-    # Evaluate in batch_size chunks.
-    # imgs = list(self.gen.forward(style, noise))
-    imgs = []
-    for i in range(0, total_latents, self.batch_size):
-      capped_range = min(self.batch_size, total_latents - i)
-      imgs.append(self.gen.forward(style[i:i+capped_range], noise[i:i+capped_range]))
-    save_image_without_overwrite(imgs, os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
-
-    # Repeat for self.gen_ema
-    imgs = []
-    for i in range(0, total_latents, self.batch_size):
-      capped_range = min(self.batch_size, total_latents - i)
-      imgs.append(self.gen_ema.forward(style[i:i+capped_range], noise[i:i+capped_range]))
-    save_image_without_overwrite(imgs, os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
-
-    # TODO: Mixed latents
-
+    save_image_without_overwrite(self.evalute_in_chunks(self.gen, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr.png'), num_rows)
+    save_image_without_overwrite(self.evalute_in_chunks(self.gen_ema, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr_ema.png'), num_rows)
   
   def load(self):
     # Load checkpoint, if it exists
