@@ -87,17 +87,12 @@ class TrainingRun():
     self.D_loss_fn = hinge_loss
     self.G_loss_fn = gen_hinge_loss
   
-  def get_image_batch(self, ema = False):
+  def get_training_image_batch(self):
     get_latents_fn = mixed_list if random() < self.mixed_prob else noise_list
     style = get_latents_fn(self.batch_size, self.num_layers, self.latent_dim, self.device)
     noise = image_noise(self.batch_size, self.image_size, self.device)
 
-    generator = self.gen
-
-    if ema:
-      generator = self.gen_ema
-
-    return generator.forward(style, noise)
+    return self.gen.forward(style, noise)
   
   def get_checkpoint_dirs(self):
       return (os.path.join(self.models_dir, self.model_name, 'gen'), 
@@ -105,7 +100,7 @@ class TrainingRun():
   
   def step(self):
     # Train Discriminator
-    generated_images = self.get_image_batch()
+    generated_images = self.get_training_image_batch()
     fake_output_loss, fake_q_loss = self.disc.forward(generated_images)
 
     image_batch = next(self.loader).cuda(self.device)
@@ -117,7 +112,7 @@ class TrainingRun():
     self.disc.step()
 
     # Train Generator
-    generated_images = self.get_image_batch()
+    generated_images = self.get_training_image_batch()
     fake_output_loss, _ = self.disc.forward(generated_images)
     real_output_loss = None
 
@@ -189,21 +184,25 @@ class TrainingRun():
     num_rows = 8
     all_imgs = []
 
-    # TODO: Re-use latents from one batch to the next
-    # Generate until we have enough to fill the grid
-    while len(all_imgs) < num_rows ** 2:
-      all_imgs = all_imgs + list(self.get_image_batch())
+    # Re-use latents across generators.
+    total_latents = num_rows ** 2
+    style = noise_list(total_latents, self.num_layers, self.latent_dim, self.device)
+    noise = image_noise(total_latents, self.image_size, self.device)
     
-    # Only keep enough to fill the grid
-    all_imgs = all_imgs[:num_rows**2]
-    save_image_without_overwrite(all_imgs, os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
+    # Evaluate in batch_size chunks.
+    # imgs = list(self.gen.forward(style, noise))
+    imgs = []
+    for i in range(0, total_latents, self.batch_size):
+      capped_range = min(self.batch_size, total_latents - i)
+      imgs.append(self.gen.forward(style[i:i+capped_range], noise[i:i+capped_range]))
+    save_image_without_overwrite(imgs, os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
 
-    # Repeat for EMA
-    all_imgs = []
-    while len(all_imgs) < num_rows ** 2:
-      all_imgs = all_imgs + list(self.get_image_batch(ema=True))
-    all_imgs = all_imgs[:num_rows**2]
-    save_image_without_overwrite(all_imgs, os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
+    # Repeat for self.gen_ema
+    imgs = []
+    for i in range(0, total_latents, self.batch_size):
+      capped_range = min(self.batch_size, total_latents - i)
+      imgs.append(self.gen_ema.forward(style[i:i+capped_range], noise[i:i+capped_range]))
+    save_image_without_overwrite(imgs, os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
 
     # TODO: Mixed latents
 
