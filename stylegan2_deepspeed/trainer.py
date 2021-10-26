@@ -169,9 +169,8 @@ class TrainingRun():
         self.gen.save_checkpoint(save_dir=gen_dir)
         self.disc.save_checkpoint(save_dir=disc_dir)
       
-      # [Primary] Pre-step
+      # [Primary] Generate training results
       if self.is_primary:
-        # Generate results
         if self.current_step() % self.evaluate_every == 0 and self.current_microstep() == 0:
           eval_id = self.current_step() // self.evaluate_every
           self.generate(eval_id)
@@ -179,7 +178,7 @@ class TrainingRun():
       # [All] Step
       self.step()
 
-      # [Primary] Post-step
+      # [Primary] Update progress bar
       if self.is_primary:
         postfix = {'microstep': self.current_microstep(), 'step': self.current_step()}
         iter.set_postfix(postfix)
