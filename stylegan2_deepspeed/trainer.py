@@ -134,6 +134,9 @@ class TrainingRun():
         self.ema.update_ema(self.gen, self.gen_ema)
 
   def current_iteration(self):
+    # Essentially gen.micro_steps.
+    # However, gen.micro_steps is reset to 0 at the start of every new training session, it's not loaded from the checkpoint.
+    # So we have to calculate the current iteration instead.
     return self.gen.global_steps * self.gen.gradient_accumulation_steps() + self.current_microstep()
 
   def current_step(self):
