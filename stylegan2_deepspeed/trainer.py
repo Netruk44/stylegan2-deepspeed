@@ -198,6 +198,10 @@ class TrainingRun():
 
   @torch.no_grad()
   def generate(self, eval_id):
+    # Colab GDrive bug:
+    # If you torchvision.utils.save_image() to a file that already exists in GDrive, it won't delete the old file.
+    # It'll create a separate file with the same name alongside the old file. Because apparently that's a desirable feature?
+    # Workaround: Delete the old file first.
     def save_image_delete_before_overwrite(images, output_file, nrow):
       if os.path.exists(output_file):
           os.remove(output_file)
