@@ -100,6 +100,9 @@ class TrainingRun():
         os.path.join(self.models_dir, self.model_name, 'disc'))
   
   def step(self):
+    # TODO: There's other loss calculations that still need to be copied from the original code.
+    # apply_path_penalty, apply_gradient_penalty, 
+    
     # Train Discriminator
     generated_images = self.get_training_image_batch()
     fake_output_loss, fake_q_loss = self.disc.forward(generated_images)
