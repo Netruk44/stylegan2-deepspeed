@@ -172,9 +172,24 @@ class TrainingRun():
 
   def evaluate_in_chunks(self, gen, all_style, all_noise):
     imgs = []
-    for i in range(0, len(all_style), self.batch_size):
-      width = min(self.batch_size, len(all_style) - i)
-      imgs.append(gen.forward(all_style[i:i+width], all_noise[i:i+width]))
+    total_images = all_style[0][0].size(0)
+    assert total_images >= self.batch_size, 'batch size must be smaller than total images'
+    
+    for i in range(0, total_images, self.batch_size):
+      # Can't run less than a full batch. If we're at the end, just use the remainder.
+      start = min(i, total_images - self.batch_size)
+
+      # print(f'Generating {start} - {start + self.batch_size} / {total_images}')
+      style = [(s[0][start:start + self.batch_size], s[1]) for s in all_style]
+      noise = all_noise[start:start + self.batch_size]
+      next_images = gen.forward(style, noise)
+
+      if start < i:
+        # The elements at the front are already in imgs, so skip those.
+        imgs.append(next_images[:i - start])
+      else:
+        imgs.append(next_images)
+
     return torch.cat(imgs, dim=0)
 
   @torch.no_grad()
@@ -196,8 +211,8 @@ class TrainingRun():
     style = noise_list(total_latents, self.num_layers, self.latent_dim, self.device)
     noise = image_noise(total_latents, self.image_size, self.device)
 
-    save_image_without_overwrite(self.evalute_in_chunks(self.gen, style, noise), os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
-    save_image_without_overwrite(self.evalute_in_chunks(self.gen_ema, style, noise), os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
+    save_image_without_overwrite(self.evaluate_in_chunks(self.gen, style, noise), os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
+    save_image_without_overwrite(self.evaluate_in_chunks(self.gen_ema, style, noise), os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
 
     # Mixed latents / mixing regularities
     def tile(a, dim, n_tile):
@@ -211,12 +226,12 @@ class TrainingRun():
     # Mix the latents of the first num_rows elements.
     style = style[0][0][:num_rows]
     tmp1 = tile(style, 0, num_rows)
-    tmp2 = torch.nn.repeat(num_rows, 1)
+    tmp2 = style.repeat(num_rows, 1)
     mixed_layer_count = self.num_layers // 2
     mixed_latents = [(tmp1, mixed_layer_count), (tmp2, self.num_layers - mixed_layer_count)]
     
-    save_image_without_overwrite(self.evalute_in_chunks(self.gen, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr.png'), num_rows)
-    save_image_without_overwrite(self.evalute_in_chunks(self.gen_ema, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr_ema.png'), num_rows)
+    save_image_without_overwrite(self.evaluate_in_chunks(self.gen, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr.png'), num_rows)
+    save_image_without_overwrite(self.evaluate_in_chunks(self.gen_ema, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr_ema.png'), num_rows)
   
   def load(self):
     # Load checkpoint, if it exists
