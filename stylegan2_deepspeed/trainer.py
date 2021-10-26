@@ -204,7 +204,7 @@ class TrainingRun():
     # Workaround: Delete the old file first.
     def save_image_delete_before_overwrite(images, output_file, nrow):
       if os.path.exists(output_file):
-          os.remove(output_file)
+        os.remove(output_file)
       
       torchvision.utils.save_image(images, output_file, nrow=nrow)
     
