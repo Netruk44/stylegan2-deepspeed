@@ -158,6 +158,7 @@ class TrainingRun():
         if not os.path.exists(disc_dir):
           os.makedirs(disc_dir)
         
+        # TODO: Save EMA as part of generator checkpoint
         self.gen.save_checkpoint(save_dir=gen_dir)
         self.disc.save_checkpoint(save_dir=disc_dir)
       
@@ -243,6 +244,7 @@ class TrainingRun():
     gen_tag = self.gen_load_from if len(self.gen_load_from) > 0 else None
     disc_tag = self.disc_load_from if len(self.disc_load_from) > 0 else None
 
+    # TODO: Load EMA as part of generator checkpoint
     self.gen.load_checkpoint(load_dir=gen_dir, tag=gen_tag)
     self.disc.load_checkpoint(load_dir=disc_dir, tag=disc_tag)
 
