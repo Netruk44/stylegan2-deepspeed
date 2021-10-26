@@ -272,7 +272,6 @@ class Trainer():
     rank = args.local_rank
 
     ttur_mult = 2.
-    mixed_prob = 0.9
 
     gen = create_generator(args, rank)
     disc = stylegan2.AugmentedDiscriminator(args.image_size, network_capacity=args.network_capacity).cuda(rank)
