@@ -183,7 +183,6 @@ class TrainingRun():
   def evaluate_in_chunks(self, gen, all_style, all_noise):
     imgs = []
     total_images = all_style[0][0].size(0)
-    assert total_images >= self.batch_size, 'batch size must be smaller than total images'
     
     for start in range(0, total_images, self.batch_size):
       end = min(start + self.batch_size, total_images)
