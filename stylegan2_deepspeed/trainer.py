@@ -198,7 +198,7 @@ class TrainingRun():
 
   @torch.no_grad()
   def generate(self, eval_id):
-    def save_image_without_overwrite(images, output_file, nrow):
+    def save_image_delete_before_overwrite(images, output_file, nrow):
       if os.path.exists(output_file):
           os.remove(output_file)
       
@@ -215,8 +215,8 @@ class TrainingRun():
     style = noise_list(total_latents, self.num_layers, self.latent_dim, self.device)
     noise = image_noise(total_latents, self.image_size, self.device)
 
-    save_image_without_overwrite(self.evaluate_in_chunks(self.gen, style, noise), os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
-    save_image_without_overwrite(self.evaluate_in_chunks(self.gen_ema, style, noise), os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
+    save_image_delete_before_overwrite(self.evaluate_in_chunks(self.gen, style, noise), os.path.join(dest_dir, f'{eval_id}.png'), num_rows)
+    save_image_delete_before_overwrite(self.evaluate_in_chunks(self.gen_ema, style, noise), os.path.join(dest_dir, f'{eval_id}_ema.png'), num_rows)
 
     # Mixed latents / mixing regularities
     def tile(a, dim, n_tile):
@@ -234,8 +234,8 @@ class TrainingRun():
     mixed_layer_count = self.num_layers // 2
     mixed_latents = [(tmp1, mixed_layer_count), (tmp2, self.num_layers - mixed_layer_count)]
     
-    save_image_without_overwrite(self.evaluate_in_chunks(self.gen, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr.png'), num_rows)
-    save_image_without_overwrite(self.evaluate_in_chunks(self.gen_ema, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr_ema.png'), num_rows)
+    save_image_delete_before_overwrite(self.evaluate_in_chunks(self.gen, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr.png'), num_rows)
+    save_image_delete_before_overwrite(self.evaluate_in_chunks(self.gen_ema, mixed_latents, noise), os.path.join(dest_dir, f'{eval_id}_mr_ema.png'), num_rows)
   
   def load(self):
     # Load checkpoint, if it exists
