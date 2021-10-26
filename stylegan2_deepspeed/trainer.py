@@ -122,7 +122,7 @@ class TrainingRun():
     self.gen.step()
 
     # Only run some things once per global_step.
-    # Right at the very start of the step, before we do any work.
+    # Right at the very start of the next step, before we do any work.
     if self.current_microstep() == 0:
       # Joint lookahead update
       if self.lookahead and (self.current_step() + 1) % self.lookahead_k == 0:
@@ -146,10 +146,10 @@ class TrainingRun():
     iter = forever()
 
     if self.is_primary:
-      iter = tqdm(iter)
+      iter = tqdm(iter, desc='Training')
     
     for _ in iter:
-      # Checkpoint (all machines need to checkpoint)
+      # [All] Checkpoint
       if self.current_step() % self.checkpoint_every == 0 and self.current_microstep() == 0:
         gen_dir, disc_dir = self.get_checkpoint_dirs()
 
@@ -162,14 +162,20 @@ class TrainingRun():
         self.gen.save_checkpoint(save_dir=gen_dir)
         self.disc.save_checkpoint(save_dir=disc_dir)
       
-      # Primary machine only
+      # [Primary] Pre-step
       if self.is_primary:
         # Generate results
         if self.current_step() % self.evaluate_every == 0 and self.current_microstep() == 0:
           eval_id = self.current_step() // self.evaluate_every
           self.generate(eval_id)
 
+      # [All] Step
       self.step()
+
+      # [Primary] Post-step
+      if self.is_primary:
+        postfix = {'microstep': self.current_microstep(), 'step': self.current_step()}
+        iter.set_postfix(postfix)
 
   def evaluate_in_chunks(self, gen, all_style, all_noise):
     imgs = []
