@@ -183,11 +183,7 @@ class TrainingRun():
       noise = all_noise[start:end]
       next_images = gen.forward(style, noise)
 
-      if start < i:
-        # The elements at the front are already in imgs, so skip those.
-        imgs.append(next_images[:i - start])
-      else:
-        imgs.append(next_images)
+      imgs.append(next_images)
 
     return torch.cat(imgs, dim=0)
 
