@@ -95,14 +95,20 @@ class TrainingRun():
 
     return self.gen.forward(style, noise)
   
-  def get_checkpoint_dirs(self):
-      return (os.path.join(self.models_dir, self.model_name, 'gen'), 
-        os.path.join(self.models_dir, self.model_name, 'disc'))
+  def get_checkpoint_dirs(self, create_if_needed=False):
+    gen_path = os.path.join(self.models_dir, self.model_name, 'gen')
+    disc_path = os.path.join(self.models_dir, self.model_name, 'disc')
+
+    if create_if_needed:
+      os.makedirs(gen_path, exist_ok=True)
+      os.makedirs(disc_path, exist_ok=True)
+
+    return (gen_path, disc_path)
   
   def step(self):
     # TODO: There's other loss calculations that still need to be copied from the original code.
     # apply_path_penalty, apply_gradient_penalty, 
-    
+
     # Train Discriminator
     generated_images = self.get_training_image_batch()
     fake_output_loss, fake_q_loss = self.disc.forward(generated_images)
@@ -157,12 +163,7 @@ class TrainingRun():
     for _ in iter:
       # [All] Checkpoint
       if self.current_step() % self.checkpoint_every == 0 and self.current_microstep() == 0:
-        gen_dir, disc_dir = self.get_checkpoint_dirs()
-
-        if not os.path.exists(gen_dir):
-          os.makedirs(gen_dir)
-        if not os.path.exists(disc_dir):
-          os.makedirs(disc_dir)
+        gen_dir, disc_dir = self.get_checkpoint_dirs(create_if_needed=True)
         
         # TODO: Save EMA as part of generator checkpoint
         self.gen.save_checkpoint(save_dir=gen_dir)
