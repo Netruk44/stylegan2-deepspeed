@@ -175,13 +175,12 @@ class TrainingRun():
     total_images = all_style[0][0].size(0)
     assert total_images >= self.batch_size, 'batch size must be smaller than total images'
     
-    for i in range(0, total_images, self.batch_size):
-      # Can't run less than a full batch. If we're at the end, just use the remainder.
-      start = min(i, total_images - self.batch_size)
+    for start in range(0, total_images, self.batch_size):
+      end = min(start + self.batch_size, total_images)
 
-      # print(f'Generating {start} - {start + self.batch_size} / {total_images}')
-      style = [(s[0][start:start + self.batch_size], s[1]) for s in all_style]
-      noise = all_noise[start:start + self.batch_size]
+      # print(f'Generating {start} - {end} / {total_images}')
+      style = [(s[0][start:end], s[1]) for s in all_style]
+      noise = all_noise[start:end]
       next_images = gen.forward(style, noise)
 
       if start < i:
