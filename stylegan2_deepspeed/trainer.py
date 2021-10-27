@@ -8,6 +8,7 @@ from stylegan2_deepspeed.dataset import Dataset, cycle
 from stylegan2_deepspeed.ema import EMA
 from stylegan2_deepspeed.lookahead import Lookahead
 import stylegan2_deepspeed.stylegan2 as stylegan2
+import time
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
@@ -176,11 +177,15 @@ class TrainingRun():
           self.generate(eval_id)
 
       # [All] Step
+      time_before_step = time.time()
       self.step()
+      time_after_step = time.time()
 
       # [Primary] Update progress bar
       if self.is_primary:
-        postfix = {'microstep': self.current_microstep(), 'step': self.current_step()}
+        #sec_per_kimg = (after - before) / (self.batch_size * self.gen.gradient_accumulation_steps() / 1000)
+        sec_per_kimg = (time_after_step - time_before_step) / self.gen.train_batch_size() * 1000
+        postfix = {'microstep': self.current_microstep(), 'step': self.current_step(), '~sec/kimg': sec_per_kimg }
         iter.set_postfix(postfix)
 
   def evaluate_in_chunks(self, gen, all_style, all_noise):
