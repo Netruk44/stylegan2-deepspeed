@@ -283,8 +283,8 @@ class Trainer():
     gen = create_generator(args, rank)
     disc = stylegan2.Discriminator(args.image_size, network_capacity=args.network_capacity).cuda(rank)
 
-    gen_opt = Adam(gen.parameters(), lr=args.learning_rate, betas=(0.5, 0.9))
-    disc_opt = Adam(disc.parameters(), lr=args.learning_rate * ttur_mult, betas=(0.5, 0.9))
+    gen_opt = deepspeed.ops.adam.FusedAdam(gen.parameters(), lr=args.learning_rate, betas=(0.5, 0.9))
+    disc_opt = deepspeed.ops.adam.FusedAdam(disc.parameters(), lr=args.learning_rate * ttur_mult, betas=(0.5, 0.9))
 
     if args.lookahead == True:
       gen_opt = Lookahead(gen_opt, alpha=args.lookahead_alpha)
