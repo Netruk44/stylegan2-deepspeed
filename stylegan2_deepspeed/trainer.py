@@ -123,6 +123,7 @@ class TrainingRun():
     real_output_loss, real_q_loss = self.disc.forward(image_batch)
 
     disc_loss = self.D_loss_fn(real_output_loss, fake_output_loss)
+    disc_loss_value = disc_loss.item()
     self.disc.backward(disc_loss)
     self.disc.step()
 
@@ -132,6 +133,7 @@ class TrainingRun():
     real_output_loss = None
 
     gen_loss = self.G_loss_fn(fake_output_loss, real_output_loss)
+    gen_loss_value = gen_loss.item()
     self.gen.backward(gen_loss)
     self.gen.step()
 
@@ -146,6 +148,8 @@ class TrainingRun():
       # EMA update
       if self.is_primary and (self.current_step() + 1) % self.ema_k == 0:
         self.ema.update_ema(self.gen, self.gen_ema)
+    
+    return (disc_loss_value, gen_loss_value)
 
   def current_iteration(self):
     # Essentially gen.micro_steps.
@@ -181,11 +185,11 @@ class TrainingRun():
           self.generate(eval_id)
 
       # [All] Step
-      self.step()
+      disc_loss, gen_loss = self.step()
 
       # [Primary] Update progress bar
       if self.is_primary:
-        postfix = {'microstep': self.current_microstep(), 'step': self.current_step()}
+        postfix = {'microstep': self.current_microstep(), 'step': self.current_step(), 'loss_d': disc_loss, 'loss_g': gen_loss}
         iter.set_postfix(postfix)
 
   def evaluate_in_chunks(self, gen, all_style, all_noise):
