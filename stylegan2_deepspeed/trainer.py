@@ -4,7 +4,7 @@ import multiprocessing
 import numpy as np
 import os
 from random import random
-from stylegan2_deepspeed.dataset import Dataset, cycle
+from stylegan2_deepspeed.dataset import Dataset
 from stylegan2_deepspeed.ema import EMA
 from stylegan2_deepspeed.lookahead import Lookahead
 import stylegan2_deepspeed.stylegan2 as stylegan2
@@ -40,6 +40,11 @@ def image_noise(n, im_size, device):
 def forever():
   while True:
     yield
+
+def cycle(iterable):
+  while True:
+    for i in iterable:
+      yield i
 
 def create_generator(args, device):
   return stylegan2.StylizedGenerator(args.image_size, network_capacity=args.network_capacity).cuda(device)
@@ -274,10 +279,7 @@ class Trainer():
     self,
     args,
   ):
-    world_size = torch.distributed.get_world_size()
-    is_ddp = world_size > 1
     rank = args.local_rank
-
     ttur_mult = 2.
 
     gen = create_generator(args, rank)
@@ -289,19 +291,15 @@ class Trainer():
     if args.lookahead == True:
       gen_opt = Lookahead(gen_opt, alpha=args.lookahead_alpha)
       disc_opt = Lookahead(disc_opt, alpha=args.lookahead_alpha)
+    
+    # Setup dataset
+    dataset = Dataset(args.data_dir, args.image_size)
 
     # Initialize deepspeed
-    gen_engine, gen_opt, *_ = deepspeed.initialize(args=args, model=gen, optimizer=gen_opt)
+    gen_engine, gen_opt, dataloader, *_ = deepspeed.initialize(args=args, model=gen, optimizer=gen_opt, training_data=dataset)
     disc_engine, disc_opt, *_ = deepspeed.initialize(args=args, model=disc, optimizer=disc_opt)
 
-    batch_size = gen_engine.train_micro_batch_size_per_gpu()
-    num_workers = NUM_CORES if not is_ddp else 0
-
-    # Setup dataset and dataloaders
-    # TODO: Try passing dataset/loader into deepspeed initialize
-    dataset = Dataset(args.data_dir, args.image_size)
-    sampler = DistributedSampler(dataset, rank=rank, num_replicas=world_size, shuffle=True) if is_ddp else None
-    dataloader = data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, sampler=sampler, shuffle=not is_ddp, drop_last=True, pin_memory=True)
+    # Setup dataloaders
     loader = cycle(dataloader)
 
     run = TrainingRun(

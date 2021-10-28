@@ -27,11 +27,6 @@ def resize_to_minimum_size(min_size, image):
         return transforms.functional.resize(image, min_size)
     return image
 
-def cycle(iterable):
-    while True:
-        for i in iterable:
-            yield i
-
 
 class expand_greyscale(object):
     def __init__(self, transparent):
