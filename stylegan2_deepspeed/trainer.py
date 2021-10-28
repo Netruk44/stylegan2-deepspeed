@@ -281,7 +281,7 @@ class Trainer():
     ttur_mult = 2.
 
     gen = create_generator(args, rank)
-    disc = stylegan2.AugmentedDiscriminator(args.image_size, network_capacity=args.network_capacity).cuda(rank)
+    disc = stylegan2.Discriminator(args.image_size, network_capacity=args.network_capacity).cuda(rank)
 
     gen_opt = Adam(gen.parameters(), lr=args.learning_rate, betas=(0.5, 0.9))
     disc_opt = Adam(disc.parameters(), lr=args.learning_rate * ttur_mult, betas=(0.5, 0.9))
