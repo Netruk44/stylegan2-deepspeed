@@ -4,7 +4,7 @@ import multiprocessing
 import numpy as np
 import os
 from random import random
-from stylegan2_deepspeed.dataset import Dataset, cycle
+from stylegan2_deepspeed.dataset import Dataset
 from stylegan2_deepspeed.ema import EMA
 from stylegan2_deepspeed.lookahead import Lookahead
 import stylegan2_deepspeed.stylegan2 as stylegan2
@@ -41,6 +41,11 @@ def image_noise(n, im_size, device):
 def forever():
   while True:
     yield
+
+def cycle(iterable):
+  while True:
+    for i in iterable:
+      yield i
 
 def create_generator(args, device):
   return stylegan2.StylizedGenerator(args.image_size, network_capacity=args.network_capacity).cuda(device)
@@ -119,6 +124,7 @@ class TrainingRun():
     real_output_loss, real_q_loss = self.disc.forward(image_batch)
 
     disc_loss = self.D_loss_fn(real_output_loss, fake_output_loss)
+    disc_loss_value = disc_loss.item()
     self.disc.backward(disc_loss)
     self.disc.step()
 
@@ -128,6 +134,7 @@ class TrainingRun():
     real_output_loss = None
 
     gen_loss = self.G_loss_fn(fake_output_loss, real_output_loss)
+    gen_loss_value = gen_loss.item()
     self.gen.backward(gen_loss)
     self.gen.step()
 
@@ -142,6 +149,8 @@ class TrainingRun():
       # EMA update
       if self.is_primary and (self.current_step() + 1) % self.ema_k == 0:
         self.ema.update_ema(self.gen, self.gen_ema)
+    
+    return (disc_loss_value, gen_loss_value)
 
   def current_iteration(self):
     # Essentially gen.micro_steps.
@@ -178,14 +187,14 @@ class TrainingRun():
 
       # [All] Step
       time_before_step = time.time()
-      self.step()
+      disc_loss, gen_loss = self.step()
       time_after_step = time.time()
 
       # [Primary] Update progress bar
       if self.is_primary:
         #sec_per_kimg = (after - before) / (self.batch_size * self.gen.gradient_accumulation_steps() / 1000)
         sec_per_kimg = (time_after_step - time_before_step) / self.gen.train_batch_size() * 1000
-        postfix = {'microstep': self.current_microstep(), 'step': self.current_step(), '~sec/kimg': sec_per_kimg }
+        postfix = {'microstep': self.current_microstep(), 'step': self.current_step(), '~sec/kimg': sec_per_kimg, 'loss_d': disc_loss, 'loss_g': gen_loss}
         iter.set_postfix(postfix)
 
   def evaluate_in_chunks(self, gen, all_style, all_noise):
@@ -279,10 +288,7 @@ class Trainer():
     self,
     args,
   ):
-    world_size = torch.distributed.get_world_size()
-    is_ddp = world_size > 1
     rank = args.local_rank
-
     ttur_mult = 2.
 
     gen = create_generator(args, rank)
@@ -294,19 +300,15 @@ class Trainer():
     if args.lookahead == True:
       gen_opt = Lookahead(gen_opt, alpha=args.lookahead_alpha)
       disc_opt = Lookahead(disc_opt, alpha=args.lookahead_alpha)
+    
+    # Setup dataset
+    dataset = Dataset(args.data_dir, args.image_size)
 
     # Initialize deepspeed
-    gen_engine, gen_opt, *_ = deepspeed.initialize(args=args, model=gen, optimizer=gen_opt)
+    gen_engine, gen_opt, dataloader, *_ = deepspeed.initialize(args=args, model=gen, optimizer=gen_opt, training_data=dataset)
     disc_engine, disc_opt, *_ = deepspeed.initialize(args=args, model=disc, optimizer=disc_opt)
 
-    batch_size = gen_engine.train_micro_batch_size_per_gpu()
-    num_workers = NUM_CORES if not is_ddp else 0
-
-    # Setup dataset and dataloaders
-    # TODO: Try passing dataset/loader into deepspeed initialize
-    dataset = Dataset(args.data_dir, args.image_size)
-    sampler = DistributedSampler(dataset, rank=rank, num_replicas=world_size, shuffle=True) if is_ddp else None
-    dataloader = data.DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, sampler=sampler, shuffle=not is_ddp, drop_last=True, pin_memory=True)
+    # Setup dataloaders
     loader = cycle(dataloader)
 
     run = TrainingRun(
@@ -317,5 +319,7 @@ class Trainer():
       args=args, 
       loader=loader)
     
-    run.load()
+    if not args.new:
+      run.load()
+      
     run.train()
