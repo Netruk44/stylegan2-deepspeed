@@ -312,5 +312,7 @@ class Trainer():
       args=args, 
       loader=loader)
     
-    run.load()
+    if not args.new:
+      run.load()
+      
     run.train()
