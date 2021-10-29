@@ -117,7 +117,7 @@ class TrainingRun():
   
   def gradient_penalty(self, images, output, weight = 10):
     batch_size = images.shape[0]
-    gradients = torch.autograd(outputs=output, inputs=images,
+    gradients = torch.autograd.grad(outputs=output, inputs=images,
                            grad_outputs=torch.ones(output.size(), device=images.device),
                            create_graph=True, retain_graph=True, only_inputs=True)[0]
 
