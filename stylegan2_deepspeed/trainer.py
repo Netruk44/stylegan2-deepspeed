@@ -191,6 +191,9 @@ class TrainingRun():
     if self.is_primary:
       iter = tqdm(iter, desc='Training')
     
+    self.gen.train()
+    self.disc.train()
+    
     for _ in iter:
       # [All] Checkpoint
       if self.current_step() % self.checkpoint_every == 0 and self.current_microstep() == 0:
