@@ -172,8 +172,6 @@ class TrainingRun():
       # EMA update
       if self.is_primary and (self.current_step() + 1) % self.ema_k == 0:
         self.ema.update_ema(self.gen, self.gen_ema)
-    
-    return (disc_loss_value, gen_loss_value)
 
   def current_iteration(self):
     # Essentially gen.micro_steps.
@@ -209,7 +207,7 @@ class TrainingRun():
           self.generate(eval_id)
 
       # [All] Step
-      disc_loss, gen_loss = self.step()
+      self.step()
 
       # [Primary] Update progress bar
       if self.is_primary:
