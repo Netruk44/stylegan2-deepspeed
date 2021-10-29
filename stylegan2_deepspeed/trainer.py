@@ -78,6 +78,8 @@ class TrainingRun():
     self.rank = args.local_rank
     self.is_primary = self.rank == 0
 
+    self.losses = {}
+
     if self.is_primary:
       self.gen_ema = create_generator(args, self.device)
       self.gen_ema.requires_grad_(False)
@@ -92,6 +94,9 @@ class TrainingRun():
 
     self.D_loss_fn = hinge_loss
     self.G_loss_fn = gen_hinge_loss
+
+  def track_loss(self, name, loss):
+    self.losses[name] = loss
   
   def get_training_image_batch(self):
     get_latents_fn = mixed_list if random() < self.mixed_prob else noise_list
@@ -110,9 +115,19 @@ class TrainingRun():
 
     return (gen_path, disc_path)
   
+  def gradient_penalty(self, images, output, weight = 10):
+    batch_size = images.shape[0]
+    gradients = torch.autograd(outputs=output, inputs=images,
+                           grad_outputs=torch.ones(output.size(), device=images.device),
+                           create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+    gradients = gradients.reshape(batch_size, -1)
+    return weight * ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+  
   def step(self):
     # TODO: There's other loss calculations that still need to be copied from the original code.
     # apply_path_penalty, apply_gradient_penalty, 
+    apply_gradient_penalty = self.current_step() % 4 == 0
 
     # Train Discriminator
     generated_images = self.get_training_image_batch()
@@ -123,7 +138,15 @@ class TrainingRun():
     real_output_loss, real_q_loss = self.disc.forward(image_batch)
 
     disc_loss = self.D_loss_fn(real_output_loss, fake_output_loss)
+    
+    if apply_gradient_penalty:
+      gp = self.gradient_penalty(image_batch, real_output_loss)
+      gp_val = gp.item()
+      self.track_loss('GP', gp_val)
+      disc_loss += gp
+
     disc_loss_value = disc_loss.item()
+    self.track_loss('D', disc_loss_value)
     self.disc.backward(disc_loss)
     self.disc.step()
 
@@ -134,6 +157,7 @@ class TrainingRun():
 
     gen_loss = self.G_loss_fn(fake_output_loss, real_output_loss)
     gen_loss_value = gen_loss.item()
+    self.track_loss('G', gen_loss_value)
     self.gen.backward(gen_loss)
     self.gen.step()
 
