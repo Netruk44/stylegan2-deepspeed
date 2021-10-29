@@ -213,7 +213,7 @@ class TrainingRun():
 
       # [Primary] Update progress bar
       if self.is_primary:
-        postfix = {'microstep': self.current_microstep(), 'step': self.current_step(), 'loss_d': disc_loss, 'loss_g': gen_loss}
+        postfix = {'microstep': self.current_microstep(), 'step': self.current_step(), **self.losses}
         iter.set_postfix(postfix)
 
   def evaluate_in_chunks(self, gen, all_style, all_noise):
