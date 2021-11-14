@@ -133,7 +133,10 @@ class TrainingRun():
     generated_images = self.get_training_image_batch()
     fake_output_loss, fake_q_loss = self.disc.forward(generated_images)
 
-    image_batch = next(self.loader).cuda(self.device)
+    image_batch = []
+    while len(image_batch) < self.batch_size:
+      # If we're at the end of the dataset, we'll get an incomplete batch.
+      image_batch = next(self.loader).cuda(self.device)
     image_batch.requires_grad_()
     real_output_loss, real_q_loss = self.disc.forward(image_batch)
 
